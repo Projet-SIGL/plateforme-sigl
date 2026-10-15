@@ -1,0 +1,2 @@
+# Force the use of a template so every issue carries the information the board needs.
+blank_issues_enabled: false

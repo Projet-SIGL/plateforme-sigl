@@ -1,0 +1,13 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Personal AI tool files (shared AI config lives in AGENTS.md and .claude/)
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Build outputs
+target/
+dist/
+node_modules/
