@@ -1,0 +1,35 @@
+name: Specification section
+description: A section of the specification document, with its owner and its reviewer.
+title: "[Spec] Part X §Y: "
+labels: ["documentation"]
+body:
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: "E.g. Part 1 §3: sequence diagrams."
+    validations:
+      required: true
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer (cross-review)
+      description: GitHub username of the person reviewing this section.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Depends on
+      description: Sections that must be finished first (e.g. glossary, class diagram).
+    validations:
+      required: false
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Expected deliverables
+      description: One checkbox per deliverable; UML sources go in docs/uml/.
+      value: |
+        - [ ]
+    validations:
+      required: true

@@ -1,0 +1,60 @@
+# Enforces the branch-name and PR-title conventions from CONTRIBUTING.md.
+# Both jobs are meant to be required status checks on main.
+#
+# The PR title and branch name are user-controlled, so they are passed through
+# environment variables instead of being interpolated into the script, which
+# prevents shell injection.
+
+name: Conventions
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          # Dependabot branches follow their own naming scheme.
+          if [[ "$BRANCH_NAME" == dependabot/* ]]; then
+            echo "Dependabot branch, skipped."
+            exit 0
+          fi
+
+          pattern='^(feature|fix|hotfix|docs|refactor|test|ci|chore)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+          if [[ ! "$BRANCH_NAME" =~ $pattern ]]; then
+            echo "::error::Invalid branch name: '$BRANCH_NAME'"
+            echo "Expected <type>/<issue-number>-<short-description>, e.g. feature/42-affectation-apprenti"
+            echo "See section 3 of CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "Branch name OK: $BRANCH_NAME"
+
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: [a-z].*[^.]$'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "::error::Invalid PR title: '$PR_TITLE'"
+            echo "Expected type(scope): description, e.g. feat(frontend): add project timeline page"
+            echo "See section 4 of CONTRIBUTING.md."
+            exit 1
+          fi
+
+          # GitHub appends " (#123)" to the squash commit subject; 65 + 7 keeps it within 72.
+          max_length=65
+          if (( ${#PR_TITLE} > max_length )); then
+            echo "::error::PR title is ${#PR_TITLE} characters long (max ${max_length})."
+            exit 1
+          fi
+          echo "PR title OK: $PR_TITLE"

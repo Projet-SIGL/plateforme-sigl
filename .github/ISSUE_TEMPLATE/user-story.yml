@@ -1,0 +1,46 @@
+name: User story
+description: A backlog feature, seen from the point of view of a platform actor.
+title: "[US] "
+labels: ["user-story"]
+body:
+  - type: input
+    id: actor
+    attributes:
+      label: As a
+      description: Actor concerned, as named in the glossary (e.g. Apprentice, HR, Project manager, Admin).
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: I want to
+      description: What the actor wants to be able to do.
+    validations:
+      required: true
+  - type: textarea
+    id: benefit
+    attributes:
+      label: So that
+      description: The expected benefit.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Verifiable conditions, one per line ("Given… when… then…" format recommended).
+    validations:
+      required: true
+  - type: input
+    id: story-points
+    attributes:
+      label: Estimate (story points, Planning Poker)
+    validations:
+      required: false
+  - type: input
+    id: services
+    attributes:
+      label: Affected service(s)
+      description: Folder(s) under services/, or frontend.
+    validations:
+      required: false
