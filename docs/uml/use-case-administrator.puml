@@ -1,0 +1,63 @@
+@startuml use-case-administrator
+' Partie 1 §1 - Diagramme de cas d'utilisation de l'administrateur.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Administrateur de la plate-forme
+left to right direction
+
+actor "Administrateur" as ADM
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Gérer les comptes utilisateurs\net leurs rôles" as UC_COMPTES
+  usecase "Créer un utilisateur\net lui associer des rôles" as UC_CREER
+  usecase "Désactiver un compte" as UC_DESACT
+  usecase "Réinitialiser le mot de passe\nd'un utilisateur" as UC_MDP
+  usecase "Importer des comptes\nen masse (CSV)" as UC_CSV
+  usecase "Gérer la grille de\ncompétences commune" as UC_GRILLE
+  usecase "Paramétrer les notifications" as UC_NOTIF
+  usecase "Gérer les droits d'accès\naux projets confidentiels" as UC_CONF
+  usecase "Superviser l'état\ndes microservices" as UC_SUPERV
+  usecase "Se connecter à la plate-forme" as UC_CON
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+
+ADM --> UC_COMPTES
+ADM --> UC_GRILLE
+ADM --> UC_NOTIF
+ADM --> UC_CONF
+ADM --> UC_SUPERV
+ADM --> UC_CON
+
+UC_COMPTES <|-down- UC_CREER
+UC_COMPTES <|-down- UC_DESACT
+UC_COMPTES <|-down- UC_MDP
+UC_CSV .right.> UC_CREER : <<extend>>
+
+UC_CON ---> KC
+
+note "Les opérations sur les comptes (création, désactivation,\nréinitialisation du mot de passe) sont déléguées à Keycloak." as N1
+@enduml

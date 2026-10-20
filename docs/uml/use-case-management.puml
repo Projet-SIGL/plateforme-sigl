@@ -1,0 +1,49 @@
+@startuml use-case-management
+' Partie 1 §1 - Diagramme de cas d'utilisation de la direction / responsable du portefeuille.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Direction / responsable du portefeuille
+left to right direction
+
+actor "Direction" as DIR
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  usecase "Consulter le tableau de bord\ndu portefeuille de projets" as UC_TDB
+  usecase "Consulter les jalons\nen retard et les alertes" as UC_RETARD
+  usecase "Consulter la charge des\néquipes et des apprentis" as UC_CHARGE
+  usecase "Exporter les indicateurs\n(CSV, PDF)" as UC_EXPORT
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+
+DIR --> UC_CON
+DIR --> UC_TDB
+DIR --> UC_RETARD
+DIR --> UC_CHARGE
+UC_EXPORT .> UC_TDB : <<extend>>
+UC_CON ---> KC
+@enduml

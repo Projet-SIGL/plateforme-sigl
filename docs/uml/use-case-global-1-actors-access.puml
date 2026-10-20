@@ -1,0 +1,69 @@
+@startuml use-case-global-1-actors-access
+' Partie 1 §1 - Vue globale 1/3 : généralisations d'acteurs, accès et notifications.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Vue globale (1/3) — Acteurs, accès et notifications
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  package "Service Notifications" {
+    usecase "Recevoir des\nnotifications" as N_RECV
+  }
+  package "Gestion des accès (Keycloak + passerelle)" {
+    usecase "Se connecter /\nse déconnecter" as G_CON
+    usecase "Gérer les comptes\net les rôles" as G_COMPTES
+  }
+}
+
+actor "Utilisateur" as U
+actor "Employé" as EMP
+actor "École\n(tuteur, contacts)" as ECO
+actor "Apprenti" as AP
+actor "Chef de projet" as CP
+actor "Maître\nd'apprentissage" as MA
+actor "Collaborateur" as COL
+actor "Responsable RH" as RH
+actor "Direction" as DIR
+actor "Administrateur" as ADM
+
+KC -down- G_CON
+KC -down- G_COMPTES
+
+EMP -up-|> U
+ECO -up-|> U
+AP -up-|> EMP
+CP -up-|> EMP
+MA -up-|> EMP
+COL -up-|> EMP
+RH -up-|> EMP
+DIR -up-|> EMP
+ADM -up-|> EMP
+
+U -up- N_RECV
+U -up- G_CON
+ADM -up- G_COMPTES
+@enduml

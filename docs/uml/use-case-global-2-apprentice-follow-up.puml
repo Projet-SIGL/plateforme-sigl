@@ -1,0 +1,68 @@
+@startuml use-case-global-2-apprentice-follow-up
+' Partie 1 §1 - Vue globale 2/3 : sous-systèmes Apprentis & alternance et Appréciations.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Vue globale (2/3) — Suivi des apprentis
+left to right direction
+
+actor "Responsable RH" as RH
+actor "Apprenti" as AP
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  package "Service Appréciations" {
+    usecase "Saisir une appréciation" as AP_SAISIR
+    usecase "Remplir la grille\nde compétences" as AP_GRILLE
+    usecase "Valider la fiche\nde synthèse" as AP_VALID
+    usecase "Transmettre la fiche de\nsynthèse à l'école" as AP_TRANS
+    usecase "Générer la fiche\nde synthèse" as AP_GEN
+    usecase "Consulter la fiche\nde synthèse" as AP_CONS
+  }
+  package "Service Apprentis & alternance" {
+    usecase "Consulter le calendrier\nd'alternance des apprentis suivis" as A_SUIVI
+    usecase "Enregistrer un apprenti,\nson école et son maître" as A_ENR
+    usecase "Importer ou saisir le\ncalendrier d'alternance" as A_CAL
+    usecase "Consulter\n« Mon emploi du temps »" as A_EDT
+  }
+}
+
+actor "Chef de projet" as CP
+actor "Maître\nd'apprentissage" as MA
+actor "École\n(tuteur, contacts)" as ECO
+
+RH -- AP_TRANS
+RH -- A_ENR
+RH -- A_CAL
+AP -- A_EDT
+
+AP_SAISIR --- CP
+AP_SAISIR --- MA
+AP_VALID --- MA
+AP_CONS --- ECO
+A_SUIVI --- ECO
+
+AP_SAISIR .right.> AP_GRILLE : <<include>>
+AP_TRANS .right.> AP_GEN : <<include>>
+@enduml

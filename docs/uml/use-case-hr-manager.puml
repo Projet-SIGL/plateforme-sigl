@@ -1,0 +1,68 @@
+@startuml use-case-hr-manager
+' Partie 1 §1 - Diagramme de cas d'utilisation du responsable RH / chargé(e) de l'alternance.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Responsable RH / chargé(e) de l'alternance
+left to right direction
+
+actor "Responsable RH" as RH
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  usecase "Enregistrer le maître\nd'apprentissage d'un apprenti" as UC_MA
+  usecase "Enregistrer un apprenti\n(identité, contrat, dates,\nservice d'accueil)" as UC_APP
+  usecase "Enregistrer l'école de l'apprenti\net les contacts de l'école" as UC_ECOLE
+  usecase "Importer ou saisir le calendrier\nd'alternance (emploi du temps,\nexamens, périodes en entreprise)" as UC_CAL
+  usecase "Importer un fichier\niCal ou CSV" as UC_IMPORT
+  usecase "Consulter le tableau de bord\ndes affectations et des alertes" as UC_TDB
+  usecase "Archiver le dossier\nd'un apprenti" as UC_ARCH
+  usecase "Transmettre la fiche de synthèse\ndes appréciations à l'école" as UC_TRANS
+  usecase "Générer la fiche de synthèse" as UC_GEN
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+actor "Maître\nd'apprentissage" as MA
+actor "École\n(tuteur, contacts)" as ECO
+
+RH --> UC_CON
+RH --> UC_MA
+RH --> UC_APP
+RH --> UC_ECOLE
+RH --> UC_CAL
+RH --> UC_TDB
+RH --> UC_ARCH
+RH --> UC_TRANS
+
+UC_IMPORT .> UC_CAL : <<extend>>
+UC_TRANS .right.> UC_GEN : <<include>>
+
+UC_CON ---> KC
+UC_MA ---> MA
+UC_TRANS ---> ECO
+
+
+note "« Transmettre la fiche de synthèse » : précondition,\nla fiche a été validée par le maître d'apprentissage." as N1
+@enduml

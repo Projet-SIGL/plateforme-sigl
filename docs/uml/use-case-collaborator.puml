@@ -1,0 +1,60 @@
+@startuml use-case-collaborator
+' Partie 1 §1 - Diagramme de cas d'utilisation du collaborateur.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Collaborateur (membre d'une équipe projet)
+left to right direction
+
+actor "Collaborateur" as COL
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  usecase "Rechercher et consulter\nles projets selon leur\nniveau de visibilité" as UC_RECH
+  usecase "Filtrer selon le niveau\nde visibilité" as UC_FILTRE
+  usecase "Consulter la page d'un\nprojet dont il est membre" as UC_PAGE
+  usecase "Indiquer ses disponibilités\npour une réunion" as UC_DISPO
+  usecase "Participer aux réunions et\nconsulter les comptes rendus" as UC_REU
+  usecase "Déposer un document\nde projet" as UC_DOC
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+
+COL --> UC_CON
+COL --> UC_RECH
+COL --> UC_PAGE
+COL --> UC_DISPO
+COL --> UC_REU
+COL --> UC_DOC
+
+UC_RECH .right.> UC_FILTRE : <<include>>
+UC_CON ---> KC
+
+note bottom of UC_FILTRE
+  Public interne : tous les collaborateurs
+  Restreint : membres des équipes, responsables, direction
+  Confidentiel : personnes nominativement autorisées
+end note
+@enduml
