@@ -1,0 +1,104 @@
+@startuml sequence-appraisal-summary-2
+' Partie 1 §3 - Saisie d'une appréciation et génération de la fiche de synthèse (2/2)
+' Brouillon v0.2. Sources : user stories M05, R08, E02, E04, P08, règle R9 (transmission seulement
+' après validation par le maître, 409 sinon), règle R7 (l'école ne voit que les fiches de synthèse),
+' dictionnaire de données (FicheSynthèse : valideeParMaitre, transmiseEcole), découpage de Gaëtan
+' (service Appréciations : /api/syntheses/**).
+' Endpoints marqués (proposition) : à valider avec Adam (Partie 2 §4).
+
+scale 2
+title Saisie d'une appréciation et génération de la fiche de synthèse (2/2)
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+
+actor "Maître\nd'apprent." as MA
+actor "Responsable\nRH" as RH
+actor "École" as ECO
+participant "Client\nReact" as UI
+participant "API\nGateway" as GW
+participant "Service\nAppréciations" as APR
+participant "Service\nApprentis" as APP
+queue "Courtier" as MQ
+participant "Service\nNotifications" as NOT
+
+autonumber "<b>[0]"
+
+== 3. Validation par le maître d'apprentissage (M05) ==
+
+MA -> UI : Consulter la fiche, puis « Valider »
+UI -> GW : POST /api/syntheses/{id}/validation\n(proposition) + JWT
+GW -> APR : Jeton vérifié, routage
+activate APR
+APR -> APP : GET /api/apprentis/{id}
+APP --> APR : maître de l'apprenti
+
+alt N'est pas le maître de l'apprenti
+  APR --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> MA : « Action non autorisée »
+else Maître de l'apprenti
+  APR -> APR : valideeParMaitre = true ;\nappréciations de la période « Validée »
+  APR --> GW : 200 OK
+  deactivate APR
+  GW --> UI : 200 OK
+  UI --> MA : Fiche validée
+end
+
+== 4. Transmission à l'école (R08, R9) ==
+
+RH -> UI : « Transmettre à l'école »
+UI -> GW : POST /api/syntheses/{id}/transmission\n(proposition) + JWT
+GW -> APR : Jeton vérifié, routage
+activate APR
+
+alt Fiche non validée par le maître (R9)
+  APR --> GW : 409 Conflict
+  GW --> UI : 409
+  UI --> RH : « La fiche doit d'abord\nêtre validée par le maître »
+else Fiche validée
+  APR -> APR : transmiseEcole = true
+  APR ->> MQ : FicheSyntheseTransmise (proposition)\n{ficheId, apprentiId, ecoleId}
+  APR --> GW : 200 OK
+  deactivate APR
+  GW --> UI : 200 OK
+  UI --> RH : Fiche transmise
+  MQ ->> NOT : FicheSyntheseTransmise
+  NOT -> NOT : Notifier l'école (E04)\net l'apprenti (P08)
+end
+
+== 5. Consultation par l'école (E02) ==
+
+ECO -> UI : Consulter la fiche de synthèse
+UI -> GW : GET /api/syntheses/{id} (proposition)\n+ JWT
+GW -> APR : Jeton vérifié (rôle ECO), routage
+activate APR
+APR -> APP : GET /api/apprentis/{id}
+APP --> APR : école de l'apprenti
+
+alt École qui ne suit pas l'apprenti, ou fiche non transmise
+  APR --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> ECO : « Accès non autorisé »
+else École de l'apprenti
+  APR -> APR : Lire le PDF\n(stockage MinIO / Blob)
+  APR --> GW : 200 OK : fiche (PDF)
+  deactivate APR
+  GW --> UI : 200 OK
+  UI --> ECO : Afficher la fiche
+end
+
+note over MA, NOT
+  R7 : l'école n'a jamais accès au contenu des projets,
+  uniquement au calendrier d'alternance et aux fiches de synthèse des apprentis qu'elle suit.
+end note
+
+@enduml

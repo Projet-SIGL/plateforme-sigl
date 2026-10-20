@@ -1,0 +1,119 @@
+@startuml activity-apprentice-assignment
+' Partie 1 §4 - Diagramme d'activités : processus d'affectation d'un apprenti
+' Brouillon v0.1. Sources : fiche de CU « Positionner un apprenti sur un projet »
+' (Partie 1 §1), user stories C06 et M02, glossaire (états d'une Affectation), règle R1.
+' Les noms de services suivent le gabarit (Partie 2 §1) ; à aligner sur le découpage de Gaëtan.
+
+title Processus d'affectation d'un apprenti\n(vérification du calendrier, validation par le maître d'apprentissage)
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #F7F7F7
+skinparam ActivityBorderColor #444444
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ArrowColor #444444
+skinparam SwimlaneTitleFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+
+|#FFFFFF|Chef de projet|
+|#F4F8FC|Service Projets|
+|#F4FCF6|Service Apprentis & alternance|
+|#FCF8F4|Service Notifications|
+|#F8F4FC|Maître d'apprentissage|
+
+|Chef de projet|
+start
+:Ouvrir le projet et choisir\n« Positionner un apprenti »;
+
+|Service Projets|
+if (Utilisateur = chef de ce projet\nou administrateur ?) then (non)
+  :Refuser l'action (403);
+  stop
+else (oui)
+endif
+
+|Chef de projet|
+:Sélectionner l'apprenti;
+
+|Service Projets|
+:Afficher ses affectations en cours\net son taux déjà occupé;
+
+repeat
+  |Chef de projet|
+  :Saisir le rôle, le taux d'affectation\net la période (début, fin);
+
+  |Service Projets|
+  :Demander le calendrier d'alternance\net les dates du contrat sur la période;
+
+  if (Service Apprentis & alternance\ndisponible ?) then (non)
+    :Signaler « calendrier non vérifiable » ;\naucune affectation enregistrée;
+    stop
+  else (oui)
+    |Service Apprentis & alternance|
+    :Renvoyer le calendrier d'alternance\n(école, examens, entreprise)\net les dates du contrat;
+  endif
+
+  |Service Projets|
+
+  fork
+    :Vérifier que la période est comprise\ndans les dates du projet et du contrat;
+  fork again
+    :Calculer le taux total de l'apprenti\nsur la période (règle R1);
+  fork again
+    :Rechercher les jalons du projet tombant\npendant une période école ou examens;
+  end fork
+
+  if (Période valide ?) then (non)
+    :Refuser l'enregistrement (400) :\npériode hors projet ou hors contrat;
+  elseif (Taux total ≤ 100 % (R1) ?) then (non)
+    :Refuser l'enregistrement (400) :\n« Taux total supérieur à 100 % »;
+  else (oui)
+  endif
+repeat while (Enregistrement refusé ?) is (oui : le chef de projet\ncorrige sa saisie) not (non)
+
+if (Conflit de calendrier détecté ?) then (oui)
+  :Afficher chaque jalon en conflit\n(date et motif : école ou examens);
+  |Chef de projet|
+  if (Enregistrer malgré le conflit ?) then (non)
+    :Annuler et déplacer\nles jalons concernés;
+    stop
+  else (oui)
+  endif
+else (non)
+endif
+
+|Chef de projet|
+:Confirmer l'enregistrement;
+
+|Service Projets|
+:Enregistrer l'affectation\nà l'état « Proposée »;
+:Publier l'événement ApprentiAffecté\ndans le courtier de messages;
+
+|Service Notifications|
+fork
+  :Notifier l'apprenti;
+fork again
+  :Notifier le maître d'apprentissage;
+end fork
+
+|Maître d'apprentissage|
+:Examiner l'affectation\n(cohérence avec les objectifs de formation);
+if (Décision ?) then (valider)
+  |Service Projets|
+  :Passer l'affectation à l'état « Validée »;
+else (refuser)
+  |Service Projets|
+  :Passer l'affectation à l'état « Refusée »;
+endif
+
+stop
+
+floating note left
+  Toutes les actions supposent un utilisateur
+  authentifié (Keycloak, via la passerelle).
+  Le chef de projet peut abandonner
+  la saisie à tout moment.
+end note
+
+@enduml

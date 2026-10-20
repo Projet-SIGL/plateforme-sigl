@@ -1,0 +1,106 @@
+@startuml sequence-project-page-visibility
+' Partie 1 §3 - Diagramme de séquences : consultation de la page d'un projet selon le niveau de visibilité
+' Brouillon v0.1. Sources : gabarit (contrôle des droits, agrégation des données des services Projets
+' et Ressources), règles R7 (école sans accès aux projets) et R8 (trois niveaux de visibilité),
+' dictionnaire de données (Projet.niveauVisibilite, Équipe.idMembres, AutorisationProjet),
+' découpage de Gaëtan (agrégation côté client React ; Ressources sous /api/ressources/**,
+' option B), user stories P04, C09, A06, arbre de navigation (route /projets/:id).
+' Endpoint marqué (proposition) : à valider avec Adam (Partie 2 §4).
+' Routage : option B retenue, chaque service n'utilise que son propre préfixe (/api/ressources/** pour Ressources).
+
+scale 2
+title Consultation de la page d'un projet selon le niveau de visibilité
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+
+actor "Utilisateur\n(AP, CP, MA,\nCOL, DIR, ADMIN)" as U
+participant "Client React\n(page /projets/:id)" as UI
+participant "API\nGateway" as GW
+participant "Service\nProjets" as PRJ
+participant "Service Ressources\n& architecture" as RES
+participant "API GitHub\n(externe)" as GH
+
+autonumber "<b>[0]"
+
+== 1. Données du projet et contrôle de visibilité ==
+
+U -> UI : Ouvrir la page d'un projet
+UI -> GW : GET /api/projets/{id} + JWT
+GW -> GW : Vérifier le JWT
+
+alt Rôle ECO (R7 : l'école n'accède jamais aux projets)
+  GW --> UI : 403 Forbidden
+  UI --> U : « Accès non autorisé »
+else Autre rôle
+  GW -> PRJ : Routage (identité et rôles transmis)
+  activate PRJ
+  PRJ -> PRJ : Lire le projet : niveau de visibilité,\néquipes, chef de projet, autorisations nominatives
+
+  note right of PRJ
+    R8 - accès autorisé si :
+    • PUBLIC_INTERNE : tout collaborateur ;
+    • RESTREINT : membre d'une équipe du projet,
+      son responsable, la direction ;
+    • CONFIDENTIEL : personne autorisée
+      nominativement (AutorisationProjet),
+      chef de projet ou administrateur.
+  end note
+
+  alt Accès refusé par R8
+    PRJ --> GW : 403 Forbidden
+    GW --> UI : 403
+    UI --> U : « Vous n'avez pas accès à ce projet »
+  else Accès autorisé
+    PRJ --> GW : 200 OK : projet, équipes, tâches, jalons,\nniveau de visibilité
+    deactivate PRJ
+    GW --> UI : 200 OK
+
+    == 2. Données techniques (service Ressources) ==
+
+    par Appels parallèles (TanStack Query)
+      UI -> GW : GET /api/ressources/projets/{id}/architecture + JWT
+      GW -> RES : Routage vers Ressources
+      activate RES
+      RES -> PRJ : GET /api/projets/{id}/acces?utilisateur= (proposition)\n(résultat mis en cache quelques minutes)
+      PRJ --> RES : autorisé
+      RES -> RES : Lire l'architecture en cours\net les ressources
+      RES --> GW : 200 OK : schéma, composants, ressources
+      deactivate RES
+      GW --> UI : 200 OK
+    else
+      UI -> GW : GET /api/ressources/projets/{id}/depots + JWT
+      GW -> RES : Routage vers Ressources
+      activate RES
+      RES -> PRJ : GET /api/projets/{id}/acces?utilisateur= (proposition)
+      PRJ --> RES : autorisé
+      RES -> GH : Derniers commits et pull requests\n(API REST GitHub, délai + disjoncteur)
+      alt GitHub disponible
+        GH --> RES : commits, pull requests
+      else GitHub indisponible ou quota dépassé
+        RES -> RES : Renvoyer les dépôts sans activité récente\n(avertissement)
+      end
+      RES --> GW : 200 OK : dépôts et activité
+      deactivate RES
+      GW --> UI : 200 OK
+    end
+
+    UI -> UI : Assembler la page : EnTeteProjet (badge de visibilité),\nListeEquipes, KanbanTaches, FriseJalons,\nSchemaArchitecture, TableauRessources
+    UI --> U : Afficher la page du projet
+  end
+end
+
+note over U, GH
+  Chaque service protège ses propres données : Ressources ne fait pas confiance au client et redemande à Projets,
+  seul propriétaire de la visibilité, si l'utilisateur a accès. La recherche de projets (/projets) applique le même filtre R8.
+end note
+
+@enduml
