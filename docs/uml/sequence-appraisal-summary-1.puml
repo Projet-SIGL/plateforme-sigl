@@ -1,0 +1,94 @@
+@startuml sequence-appraisal-summary-1
+' Partie 1 §3 - Saisie d'une appréciation et génération de la fiche de synthèse (1/2)
+' Brouillon v0.2. Sources : gabarit, user stories C12, M04, R08, règle R3, glossaire (états d'une
+' Appréciation), dictionnaire de données et découpage de Gaëtan (service Appréciations :
+' /api/appreciations/**, /api/syntheses/** ; PostgreSQL ; binaires dans MinIO / Azure Blob).
+' Endpoints marqués (proposition) : à valider avec Adam (Partie 2 §4).
+' Découpé en deux diagrammes pour rester lisible une fois inséré dans le dossier.
+
+scale 2
+title Saisie d'une appréciation et génération de la fiche de synthèse (1/2)
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+
+actor "Chef de\nprojet" as CP
+actor "Responsable\nRH" as RH
+participant "Client\nReact" as UI
+participant "API\nGateway" as GW
+participant "Service\nAppréciations" as APR
+queue "Courtier" as MQ
+participant "Service\nNotifications" as NOT
+
+autonumber "<b>[0]"
+
+== 1. Saisie de l'appréciation par le chef de projet (C12) ==
+
+CP -> UI : Remplir la grille de compétences\n(/apprentis/:id/evaluations)
+UI -> GW : POST /api/appreciations (proposition)\n{apprentiId, projetId, periode, criteres}\n+ JWT
+GW -> APR : Jeton vérifié, routage
+activate APR
+APR -> APR : Vérifier R3 : le chef de projet a encadré\nl'apprenti (affectations reçues via ApprentiAffecté)
+
+alt R3 non respectée
+  APR --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> CP : « Vous n'avez pas encadré cet apprenti »
+else R3 respectée
+  APR -> APR : Contrôler la grille active,\nenregistrer l'appréciation (« Brouillon »)
+  APR --> GW : 201 Created
+  deactivate APR
+  GW --> UI : 201 Created
+
+  CP -> UI : « Soumettre »
+  UI -> GW : POST /api/appreciations/{id}/soumission\n(proposition)
+  GW -> APR : Routage
+  activate APR
+  APR -> APR : Passer à l'état « Soumise »
+  APR ->> MQ : AppréciationSaisie\n{appreciationId, apprentiId, auteurId, periode}
+  APR --> GW : 200 OK
+  deactivate APR
+  GW --> UI : 200 OK
+  UI --> CP : Appréciation soumise
+  MQ ->> NOT : AppréciationSaisie
+  NOT -> NOT : Notifier l'apprenti\net son maître
+end
+
+ref over CP, NOT
+  Même enchaînement pour le maître d'apprentissage à la fin de chaque période (M04).
+  Contrôle R3 : le service Appréciations vérifie auprès du service Apprentis
+  (GET /api/apprentis/{id}) qu'il est bien le maître de l'apprenti.
+end ref
+
+== 2. Génération de la fiche de synthèse par le RH (R08) ==
+
+RH -> UI : Générer la fiche de l'apprenti\npour la période
+UI -> GW : POST /api/syntheses (proposition)\n{apprentiId, periode} + JWT
+GW -> APR : Jeton vérifié, routage
+activate APR
+APR -> APR : Lire les appréciations « Soumises »\nde la période
+
+alt Aucune appréciation soumise
+  APR --> GW : 409 Conflict
+  GW --> UI : 409
+  UI --> RH : « Aucune appréciation soumise\npour cette période »
+else Appréciations disponibles
+  APR -> APR : Agréger les niveaux par critère,\ngénérer le PDF (stockage MinIO / Blob),\nenregistrer la fiche (à valider)
+  APR ->> MQ : FicheSyntheseGeneree (proposition)\n{ficheId, apprentiId, periode}
+  APR --> GW : 201 Created {ficheId}
+  deactivate APR
+  GW --> UI : 201 Created
+  UI --> RH : Fiche générée,\nen attente de validation
+  MQ ->> NOT : FicheSyntheseGeneree
+  NOT -> NOT : Notifier le maître :\nfiche à valider
+end
+
+@enduml

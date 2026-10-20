@@ -1,0 +1,95 @@
+@startuml sequence-login-schedule
+' Partie 1 §3 - Diagramme de séquences : connexion (Keycloak) et consultation de « Mon emploi du temps »
+' Brouillon v0.1. Sources : gabarit (Client React -> API Gateway -> Keycloak -> service Apprentis),
+' user stories U01 (authentification unique), P01 (emploi du temps : services Apprentis, Réunions,
+' Projets ; vue semaine ou mois), arbre de navigation (routes /login et /emploi-du-temps),
+' sujet (passerelle : vérification des JWT ; authentification déléguée à Keycloak via OpenID Connect).
+' Les endpoints des services Réunions et Projets sont des propositions, à valider avec Adam (Partie 2 §4).
+
+title Connexion (Keycloak) et consultation de « Mon emploi du temps »
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+
+actor "Apprenti" as AP
+participant "Client React\n(KeycloakProvider,\nCalendrierAlternance)" as UI
+participant "Keycloak\n(OpenID Connect)" as KC
+participant "API Gateway\n(Spring Cloud Gateway)" as GW
+participant "Service Apprentis\n& alternance" as APP
+participant "Service Réunions\n& documents" as REU
+participant "Service Projets" as PRJ
+
+autonumber "<b>[0]"
+
+== 1. Connexion (authentification unique) ==
+
+AP -> UI : Ouvrir la plate-forme
+UI -> UI : Aucun jeton valide en mémoire
+UI -> KC : Rediriger vers la page de connexion\n(OIDC Authorization Code + PKCE)
+AP -> KC : Saisir identifiant et mot de passe
+
+alt Identifiants incorrects
+  KC --> AP : Message d'erreur, nouvelle saisie
+else Identifiants corrects
+  KC --> UI : Redirection vers l'application avec un code d'autorisation
+  UI -> KC : Échanger le code (+ vérificateur PKCE) contre les jetons
+  KC --> UI : Jeton d'accès JWT (identité, rôles) + jeton de rafraîchissement
+  UI -> UI : Lire le rôle (APPRENTI)\net ouvrir /emploi-du-temps
+end
+
+== 2. Consultation de « Mon emploi du temps » (semaine ou mois) ==
+
+AP -> UI : Choisir la vue (semaine / mois) et la période
+
+par Appels parallèles (TanStack Query)
+  UI -> GW : GET /api/apprentis/{id}/calendrier?debut=&fin=\nAuthorization: Bearer <JWT>
+  GW -> GW : Vérifier le JWT (signature avec les clés publiques\nde Keycloak, expiration, rôle autorisé)
+  GW -> APP : GET /api/apprentis/{id}/calendrier?debut=&fin=
+  APP -> APP : Vérifier que l'utilisateur a le droit de voir\nce calendrier (lui-même, son maître, RH, école)
+  APP --> GW : 200 OK : cours, examens, périodes en entreprise,\nindisponibilités
+  GW --> UI : 200 OK
+else
+  UI -> GW : GET /api/reunions?participant={id}&debut=&fin=\nAuthorization: Bearer <JWT>
+  GW -> REU : GET /api/reunions?participant={id}&debut=&fin=
+  REU --> GW : 200 OK : réunions de l'apprenti
+  GW --> UI : 200 OK
+else
+  UI -> GW : GET /api/projets/jalons?apprenti={id}&debut=&fin=\nAuthorization: Bearer <JWT>
+  GW -> PRJ : GET /api/projets/jalons?apprenti={id}&debut=&fin=
+  PRJ --> GW : 200 OK : jalons des projets où l'apprenti est affecté
+  GW --> UI : 200 OK
+end
+
+UI -> UI : Fusionner les événements dans le calendrier\n(FullCalendar, filtres par type)
+UI --> AP : Afficher l'emploi du temps :\ncours, examens, entreprise, réunions, jalons
+
+== 3. Cas particuliers ==
+
+alt Jeton d'accès expiré
+  GW --> UI : 401 Unauthorized
+  UI -> KC : Rafraîchir le jeton (jeton de rafraîchissement)
+  KC --> UI : Nouveau jeton d'accès
+  UI -> GW : Rejouer la requête avec le nouveau jeton
+else Accès à l'emploi du temps d'un autre apprenti sans droit
+  APP --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> AP : « Accès non autorisé »
+else Service Réunions ou Projets indisponible
+  GW --> UI : 503 Service Unavailable
+  UI --> AP : Afficher le calendrier d'alternance seul,\navec un avertissement « réunions / jalons indisponibles »
+end
+
+note over UI, PRJ
+  La passerelle vérifie le jeton sur chaque requête ; chaque service applique ensuite ses propres règles d'accès.
+  Les services restent indépendants : c'est le client qui assemble les trois sources, sans jointure entre bases.
+end note
+
+@enduml

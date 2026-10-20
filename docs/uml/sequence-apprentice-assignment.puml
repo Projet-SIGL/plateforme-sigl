@@ -1,0 +1,116 @@
+@startuml sequence-apprentice-assignment
+' Partie 1 §3 - Diagramme de séquences : positionnement d'un apprenti sur un projet
+' avec détection de conflit. Brouillon v0.1.
+' Sources : scénario de référence du sujet (Projet SIGL p. 3 et cours p. 27), user story C06
+' (endpoints, événement ApprentiAffecté), fiche de CU « Positionner un apprenti » (Partie 1 §1),
+' tableau d'API du gabarit (201, 400, 403, 409), arbre de navigation (route /projets/:id/affecter).
+' Les participants suivent les services du gabarit ; à aligner sur le découpage de Gaëtan (Partie 2 §1).
+
+title Positionnement d'un apprenti sur un projet avec détection de conflit
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+skinparam BoxPadding 8
+
+actor "Chef de projet" as CP
+participant "Client React\n(FormulaireAffectation)" as UI
+participant "API Gateway\n(Spring Cloud Gateway)" as GW
+box "Service Projets" #F4F8FC
+  participant "Service Projets" as PRJ
+  database "BD Projets" as DBP
+end box
+participant "Service Apprentis\n& alternance" as APP
+queue "Courtier\nde messages" as MQ
+participant "Service\nNotifications" as NOT
+participant "Service\nAppréciations" as APR
+
+autonumber "<b>[0]"
+
+== 1. Ouverture du formulaire : aperçu des conflits ==
+
+CP -> UI : Ouvrir « Positionner un apprenti »\n(/projets/:id/affecter), choisir l'apprenti et la période
+UI -> GW : GET /api/apprentis/{id}/calendrier?debut=&fin=\nAuthorization: Bearer <JWT>
+GW -> GW : Vérifier le JWT (signature Keycloak, expiration)
+GW -> APP : GET /api/apprentis/{id}/calendrier?debut=&fin=
+APP --> GW : 200 OK : événements (cours, examens, entreprise)
+GW --> UI : 200 OK
+UI -> UI : Croiser le calendrier avec la frise des jalons\n(ApercuCalendrierCroise, BandeauAlertesConflits)
+UI --> CP : Afficher le calendrier, le taux déjà occupé\net les jalons en conflit (avertissement)
+
+== 2. Enregistrement de l'affectation ==
+
+CP -> UI : Saisir le rôle et le taux, puis « Enregistrer »
+UI -> GW : POST /api/projets/{id}/affectations\n{apprentiId, role, taux, dateDebut, dateFin}\nAuthorization: Bearer <JWT>
+GW -> GW : Vérifier le JWT
+
+alt Jeton absent, invalide ou expiré
+  GW --> UI : 401 Unauthorized
+  UI --> CP : Rediriger vers la connexion (Keycloak)
+else Jeton valide
+  GW -> PRJ : POST /api/projets/{id}/affectations\n(routage, identité et rôles transmis)
+  activate PRJ
+  PRJ -> PRJ : Vérifier les droits :\nchef de ce projet ou ADMIN
+
+  alt Utilisateur non autorisé
+    PRJ --> GW : 403 Forbidden
+    GW --> UI : 403 Forbidden
+    UI --> CP : « Action non autorisée »
+  else Utilisateur autorisé
+    PRJ -> APP : GET /api/apprentis/{id}/calendrier?debut=&fin=\n(timeout + disjoncteur Resilience4j)
+
+    alt Service Apprentis indisponible (délai dépassé ou disjoncteur ouvert)
+      PRJ --> GW : 503 Service Unavailable
+      GW --> UI : 503
+      UI --> CP : « Calendrier non vérifiable,\naffectation non enregistrée »
+    else Calendrier reçu
+      APP --> PRJ : 200 OK : événements du calendrier\net dates du contrat
+      PRJ -> DBP : Lire les jalons et les dates du projet,\net les affectations de l'apprenti sur la période
+      DBP --> PRJ : jalons, dates, affectations existantes
+      PRJ -> PRJ : Vérifier période ⊂ dates du projet et du contrat
+      PRJ -> PRJ : Calculer le taux total sur la période (R1)
+      PRJ -> PRJ : Détecter les jalons pendant\nune période école ou examens
+
+      alt Période hors du projet ou du contrat
+        PRJ --> GW : 400 Bad Request
+        GW --> UI : 400
+        UI --> CP : « Période hors des dates du projet ou du contrat »
+      else Taux total > 100 % (R1)
+        PRJ --> GW : 409 Conflict
+        GW --> UI : 409
+        UI --> CP : « Taux total supérieur à 100 % »
+      else Règles respectées (conflits de calendrier = simple avertissement)
+        PRJ -> DBP : INSERT affectation (état « Proposée »)
+        DBP --> PRJ : affectation créée
+        PRJ ->> MQ : publier ApprentiAffecté\n{affectationId, projetId, chefProjetId, apprentiId, role, taux, dateDebut, dateFin}
+        PRJ --> GW : 201 Created : affectation + conflits éventuels
+        deactivate PRJ
+        GW --> UI : 201 Created
+        UI --> CP : Confirmer l'enregistrement\net rappeler les conflits éventuels
+
+        par Traitement asynchrone de l'événement
+          MQ ->> NOT : ApprentiAffecté
+          NOT -> NOT : Notifier l'apprenti\net son maître d'apprentissage
+        else
+          MQ ->> APR : ApprentiAffecté
+          APR -> APR : Préparer la grille d'appréciation\nde l'apprenti pour ce projet
+        end
+      end
+    end
+  end
+end
+
+note over CP, APR
+  Les flèches pleines sont des appels REST synchrones (JSON) ; les flèches ouvertes (->>)
+  sont des messages asynchrones via le courtier. La vérification des conflits de la phase 1
+  n'est qu'un aperçu : le service Projets refait toutes les vérifications à l'enregistrement.
+end note
+
+@enduml

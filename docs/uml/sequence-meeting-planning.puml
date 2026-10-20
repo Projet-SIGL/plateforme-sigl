@@ -1,0 +1,139 @@
+@startuml sequence-meeting-planning
+' Partie 1 §3 - Diagramme de séquences : planification d'une réunion et dépôt du compte rendu
+' Brouillon v0.1. Sources : fiche de CU « Planifier une réunion » (Partie 1 §1 : scénario nominal 1-5,
+' alternatifs 3a et 5a, exceptions 3b et 5b, règles de gestion), user stories C10, C11, P07, P09,
+' gabarit (créneaux communs, notification des participants, stockage du document ; événement
+' RéunionPlanifiée), arbre de navigation (route /projets/:id/reunions).
+' Endpoints marqués (proposition) : à valider avec Adam (Partie 2 §4).
+' Stockage de fichiers : MinIO ou Azure Blob Storage selon le choix de Valentin (Partie 2 §2).
+
+title Planification d'une réunion et dépôt du compte rendu
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ParticipantBackgroundColor #F7F7F7
+skinparam ParticipantBorderColor #444444
+skinparam ArrowColor #444444
+skinparam LifeLineBorderColor #888888
+skinparam NoteBackgroundColor #FFFBE6
+
+actor "Chef de projet" as CP
+actor "Participant\n(apprenti, collaborateur)" as PA
+participant "Client React\n(FormulairePlanification,\nProposeurCreneauxCommuns)" as UI
+participant "API Gateway" as GW
+box "Service Réunions & documents" #F4F8FC
+  participant "Service Réunions\n& documents" as REU
+  database "BD Réunions" as DBR
+end box
+participant "Service Projets" as PRJ
+participant "Service Apprentis\n& alternance" as APP
+database "Stockage de fichiers\n(MinIO / Blob)" as STO
+queue "Courtier\nde messages" as MQ
+participant "Service\nNotifications" as NOT
+
+autonumber "<b>[0]"
+
+== 1. Recherche des créneaux communs ==
+
+CP -> UI : Saisir l'objet, la durée, la fenêtre de dates\net choisir les participants
+UI -> GW : POST /api/reunions/creneaux-communs (proposition)\n{projetId, participants, duree, debut, fin}\nAuthorization: Bearer <JWT>
+GW -> GW : Vérifier le JWT
+GW -> REU : POST /api/reunions/creneaux-communs
+activate REU
+REU -> PRJ : GET /api/projets/{id}/membres (proposition)
+PRJ --> REU : 200 OK : chef de projet et membres
+
+alt Utilisateur qui n'est pas le chef de ce projet, ou participant hors du projet
+  REU --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> CP : « Seul le chef de projet planifie une réunion\navec les membres du projet »
+else Autorisé
+  REU -> DBR : Lire les réunions déjà prévues des participants
+  DBR --> REU : réunions existantes
+
+  loop Pour chaque apprenti participant
+    REU -> APP : GET /api/apprentis/{id}/calendrier?debut=&fin=
+    alt Service Apprentis disponible
+      APP --> REU : 200 OK : école, examens, entreprise, indisponibilités
+    else Service indisponible (délai dépassé ou disjoncteur ouvert)
+      REU -> REU : Continuer sans les calendriers\n(avertissement à afficher)
+    end
+  end
+
+  REU -> REU : Calculer les créneaux communs\n(hors école, examens, indisponibilités et réunions prévues)
+
+  alt Aucun créneau commun dans la fenêtre
+    REU -> REU : Retenir les créneaux où le plus de participants\nsont disponibles, en nommant les absents
+  end
+
+  REU --> GW : 200 OK : créneaux proposés\n(+ absents, + avertissement éventuel)
+  deactivate REU
+  GW --> UI : 200 OK
+  UI --> CP : Afficher les créneaux\n(élargir la fenêtre ou retirer un participant si besoin)
+end
+
+== 2. Création de la réunion et ordre du jour ==
+
+CP -> UI : Choisir un créneau et joindre l'ordre du jour
+UI -> GW : POST /api/reunions\n{projetId, objet, debut, fin, participants}
+GW -> REU : POST /api/reunions
+activate REU
+REU -> DBR : Vérifier que le créneau est toujours libre\npour chaque participant
+
+alt Créneau occupé entre-temps par une autre réunion
+  REU --> GW : 409 Conflict
+  GW --> UI : 409
+  UI --> CP : « Créneau devenu indisponible » :\nnouvelle recherche des créneaux (retour en 1)
+else Créneau libre
+  REU -> DBR : INSERT réunion (participants, créneau)
+  REU ->> MQ : publier RéunionPlanifiée\n{reunionId, projetId, participants, debut, fin}
+  REU --> GW : 201 Created {reunionId}
+  deactivate REU
+  GW --> UI : 201 Created
+
+  UI -> GW : POST /api/reunions/{id}/documents (proposition)\nmultipart : fichier, type = ORDRE_DU_JOUR
+  GW -> REU : POST /api/reunions/{id}/documents
+  REU -> STO : Enregistrer le fichier
+  STO --> REU : référence du fichier
+  REU -> DBR : Enregistrer les métadonnées (version 1)
+  REU --> GW : 201 Created
+  GW --> UI : 201 Created
+  UI --> CP : Réunion planifiée, ordre du jour joint
+
+  MQ ->> NOT : RéunionPlanifiée
+  NOT -> NOT : Notifier chaque participant\n(la réunion apparaît dans « Mon emploi du temps »)
+end
+
+== 3. Après la réunion : dépôt du compte rendu ==
+
+PA -> UI : Déposer le compte rendu de la réunion
+UI -> GW : POST /api/reunions/{id}/documents (proposition)\nmultipart : fichier, type = COMPTE_RENDU
+GW -> REU : POST /api/reunions/{id}/documents
+activate REU
+
+alt Utilisateur qui n'est pas participant de la réunion
+  REU --> GW : 403 Forbidden
+  GW --> UI : 403
+  UI --> PA : « Action non autorisée »
+else Participant
+  REU -> STO : Enregistrer le fichier
+  STO --> REU : référence du fichier
+  REU -> DBR : Enregistrer les métadonnées\n(nouvelle version si un compte rendu existe déjà)
+  REU ->> MQ : publier DocumentDéposé (proposition)\n{reunionId, documentId, type, version}
+  REU --> GW : 201 Created
+  deactivate REU
+  GW --> UI : 201 Created
+  UI --> PA : Compte rendu déposé
+  MQ ->> NOT : DocumentDéposé
+  NOT -> NOT : Notifier les participants
+end
+
+note over CP, NOT
+  Règles de la fiche : un créneau proposé ne tombe jamais pendant une période école ou d'examens d'un apprenti participant ;
+  seul le chef de projet planifie ou annule une réunion ; l'ordre du jour et le compte rendu sont des documents versionnés rattachés à la réunion.
+end note
+
+@enduml

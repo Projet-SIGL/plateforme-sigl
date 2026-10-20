@@ -1,0 +1,145 @@
+@startuml activity-project-lifecycle
+' Partie 1 §4 - Diagramme d'activités : cycle de vie d'un projet (de la création à l'archivage)
+' Brouillon v0.1. Sources : figure « Le cycle de vie d'un projet sur la plate-forme » (sujet, p. 12),
+' glossaire (états d'un Projet : Brouillon, En cours, Suspendu, Clôturé, Archivé),
+' user stories C01-C05, C14, M02, M04, M05, R09, CU du responsable RH (transmission de la fiche).
+' Les objets « Projet [état] » doivent rester identiques au diagramme d'états d'Adam (Partie 1 §5).
+
+title Cycle de vie d'un projet (de la création à l'archivage)
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #F7F7F7
+skinparam ActivityBorderColor #444444
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ArrowColor #444444
+skinparam SwimlaneTitleFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+
+|#FFFFFF|Responsable RH / Entreprise|
+|#F4F8FC|Chef de projet|
+|#F4FCF6|Apprenti|
+|#F8F4FC|Maître d'apprentissage|
+|#FCF8F4|École|
+
+' ===================== 1. Enregistrement =====================
+|Responsable RH / Entreprise|
+start
+:<<enregistrement>>\nEnregistrer l'apprenti, son école,\nles contacts de l'école et son maître ;\nimporter le calendrier d'alternance;
+
+fork
+  |Apprenti|
+  :Compléter son profil, consulter\n« Mon emploi du temps »;
+fork again
+  |Maître d'apprentissage|
+  :Prendre connaissance\nde la fiche de l'apprenti;
+fork again
+  |École|
+  :<<notification>>\nRecevoir les coordonnées\nde l'entreprise et du maître;
+end fork
+
+' ===================== 2. Lancement du projet =====================
+|Chef de projet|
+:<<fiche projet>>\nCréer le projet (nom, description,\nclient, dates de début et de fin);
+#E8F0FE:**Projet** [Brouillon];
+
+fork
+  :Créer les équipes\net leurs membres;
+fork again
+  :Définir les jalons;
+fork again
+  :Décrire l'architecture\net les ressources;
+fork again
+  :Lier les dépôts GitHub;
+fork again
+  :Fixer le niveau de visibilité;
+end fork
+
+:Lancer le projet;
+#E8F0FE:**Projet** [En cours];
+
+repeat
+  |Chef de projet|
+  :<<affectation>>\nPositionner l'apprenti (rôle, taux, période)\n(voir « Processus d'affectation d'un apprenti »);
+  |Apprenti|
+  :Recevoir la notification et consulter le projet\n(conflits de calendrier signalés);
+  |Maître d'apprentissage|
+  if (Affectation cohérente avec\nles objectifs de formation ?) then (oui)
+    :Valider l'affectation;
+  else (non)
+    :Refuser l'affectation;
+  endif
+repeat while (Affectation refusée ?) is (oui : le chef de projet\nrevoit le positionnement) not (non)
+
+' ===================== 3. Réalisation (sprints) =====================
+repeat
+  fork
+    |Chef de projet|
+    :<<réunion>>\nPlanifier les réunions (créneaux communs) ;\nsuivre les tâches et les jalons;
+  fork again
+    |Apprenti|
+    :Réaliser les tâches (issues GitHub),\ndéposer les documents,\nparticiper aux réunions;
+    :<<compte rendu>>\nRédiger le compte rendu de réunion;
+  fork again
+    |Maître d'apprentissage|
+    :Suivre l'avancement\net consulter les documents;
+  fork again
+    |Responsable RH / Entreprise|
+    :Suivre le tableau de bord\ndes affectations et des alertes;
+  end fork
+
+  |Chef de projet|
+  if (Suspension nécessaire ?) then (oui)
+    :Suspendre le projet;
+    #E8F0FE:**Projet** [Suspendu];
+    :Reprendre le projet;
+    #E8F0FE:**Projet** [En cours];
+  else (non)
+  endif
+repeat while (Travaux du projet terminés ?) is (non) not (oui)
+
+' ===================== 4. Clôture et appréciation =====================
+fork
+  |Chef de projet|
+  :<<appréciation>>\nSaisir l'appréciation de l'apprenti\n(grille de compétences);
+fork again
+  |Maître d'apprentissage|
+  :<<appréciation>>\nCompléter l'appréciation\n(grille de compétences);
+end fork
+
+|Apprenti|
+:<<fiche de synthèse>>\nFiche de synthèse générée\net consultable par l'apprenti;
+
+|Maître d'apprentissage|
+:Valider la fiche de synthèse;
+
+|Responsable RH / Entreprise|
+:Transmettre la fiche de synthèse à l'école;
+
+fork
+  |École|
+  :Consulter la fiche de synthèse\n(sans accès aux projets);
+fork again
+  |Chef de projet|
+  :Clôturer le projet;
+  #E8F0FE:**Projet** [Clôturé];
+  :Archiver le projet\net figer son historique;
+  #E8F0FE:**Projet** [Archivé];
+end fork
+
+stop
+
+floating note right
+  Hypothèses à valider avec le PPO :
+  1. « Lancer le projet » (Brouillon → En cours) :
+     déclencheur et conditions non décrits.
+  2. Suspendre / reprendre : état cité dans
+     le glossaire, transitions non décrites.
+  3. Clôture et archivage : faits par le chef de
+     projet (story C14, CU « Clôturer le projet »),
+     alors que la figure du sujet les place
+     dans le couloir RH / Entreprise.
+end note
+
+@enduml
