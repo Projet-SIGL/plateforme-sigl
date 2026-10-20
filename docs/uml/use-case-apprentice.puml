@@ -1,0 +1,76 @@
+@startuml use-case-apprentice
+' Partie 1 §1 - Diagramme de cas d'utilisation de l'apprenti.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Apprenti
+left to right direction
+
+actor "Apprenti" as AP
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+actor "Chef de projet" as CP
+actor "Maître\nd'apprentissage" as MA
+actor "Service\nNotifications" as NOTIF <<système>>
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter\n(authentification Keycloak)" as UC_CON
+  usecase "Compléter son profil\n(compétences, technologies)" as UC_PROFIL
+  usecase "Consulter « Mon emploi du temps »\n(cours, examens, entreprise,\nréunions, jalons)" as UC_EDT
+  usecase "Exporter son emploi du temps\n(iCal)" as UC_ICAL
+  usecase "Signaler une indisponibilité\nponctuelle" as UC_INDISPO
+  usecase "Consulter la liste des projets\nsur lesquels il est positionné\n(rôle, taux d'affectation)" as UC_PROJETS
+  usecase "Consulter la page d'un projet\n(équipes, architecture, ressources,\ntâches, jalons)" as UC_PAGE
+  usecase "Mettre à jour l'état\nde ses tâches" as UC_TACHE
+  usecase "Déposer un document\nde projet" as UC_DOC
+  usecase "Consulter ses réunions" as UC_REU
+  usecase "Rédiger le compte rendu\nd'une réunion" as UC_CR
+  usecase "Consulter ses appréciations\net sa fiche de synthèse" as UC_APPR
+  usecase "Recevoir des notifications\n(affectation, réunion, jalon)" as UC_NOTIF
+}
+
+AP --> UC_CON
+AP --> UC_PROFIL
+AP --> UC_EDT
+AP --> UC_INDISPO
+AP --> UC_PROJETS
+AP --> UC_PAGE
+AP --> UC_TACHE
+AP --> UC_DOC
+AP --> UC_REU
+AP --> UC_APPR
+AP --> UC_NOTIF
+
+UC_ICAL .> UC_EDT : <<extend>>
+UC_CR .> UC_REU : <<extend>>
+
+UC_CON --> KC
+UC_NOTIF --> NOTIF
+UC_TACHE --> CP
+UC_APPR --> CP
+UC_APPR --> MA
+UC_DOC --> MA
+
+note "Tous les cas d'utilisation (sauf « Se connecter »)\nont pour précondition un utilisateur authentifié." as N1
+@enduml

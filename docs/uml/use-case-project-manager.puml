@@ -1,0 +1,100 @@
+@startuml use-case-project-manager
+' Partie 1 §1 - Diagramme de cas d'utilisation du chef de projet.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Chef de projet
+left to right direction
+
+actor "Chef de projet" as CP
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  package "Pilotage du projet" {
+    usecase "Créer un projet" as UC_CREER
+    usecase "Définir le niveau\nde visibilité" as UC_VIS
+    usecase "Gérer les équipes du projet\net leurs membres" as UC_EQ
+    usecase "Gérer les tâches" as UC_TACHE
+    usecase "Gérer les jalons" as UC_JAL
+    usecase "Générer le rapport\nd'avancement du projet" as UC_RAPPORT
+    usecase "Visualiser la charge\nde l'équipe (Gantt)" as UC_GANTT
+    usecase "Clôturer le projet" as UC_CLOT
+  }
+  package "Suivi technique" {
+    usecase "Décrire l'architecture\nen cours" as UC_ARCHI
+    usecase "Décrire les ressources\n(infrastructures, services)" as UC_RES
+    usecase "Lier un ou plusieurs\ndépôts GitHub au projet" as UC_GH
+  }
+  package "Affectation des apprentis" {
+    usecase "Positionner un apprenti\nsur le projet\n(rôle, taux, période)" as UC_AFF
+    usecase "Vérifier le calendrier\nd'alternance" as UC_VERIF
+    usecase "Signaler les conflits\nde calendrier\n(école, examens)" as UC_CONFLIT
+  }
+  package "Réunions et appréciations" {
+    usecase "Planifier une réunion" as UC_REU
+    usecase "Proposer des\ncréneaux communs" as UC_CRENEAU
+    usecase "Rattacher des documents\n(ordre du jour, compte rendu)" as UC_DOCS
+    usecase "Saisir une appréciation\nsur un apprenti" as UC_APPR
+    usecase "Remplir la grille\nde compétences" as UC_GRILLE
+  }
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+actor "GitHub" as GH <<système>>
+actor "Apprenti" as AP
+actor "Maître\nd'apprentissage" as MA
+actor "Collaborateur" as COL
+actor "Service\nNotifications" as NOTIF <<système>>
+
+CP --> UC_CON
+CP --> UC_CREER
+CP --> UC_EQ
+CP --> UC_TACHE
+CP --> UC_JAL
+CP --> UC_RAPPORT
+CP --> UC_GANTT
+CP --> UC_CLOT
+CP --> UC_ARCHI
+CP --> UC_RES
+CP --> UC_GH
+CP --> UC_AFF
+CP --> UC_REU
+CP --> UC_APPR
+
+UC_CREER .right.> UC_VIS : <<include>>
+UC_AFF .right.> UC_VERIF : <<include>>
+UC_CONFLIT .> UC_AFF : <<extend>>\n[conflit détecté]
+UC_REU .right.> UC_CRENEAU : <<include>>
+UC_DOCS .> UC_REU : <<extend>>
+UC_APPR .right.> UC_GRILLE : <<include>>
+
+UC_CON ---> KC
+UC_GH ---> GH
+UC_AFF ---> AP
+UC_AFF ---> MA
+UC_AFF ---> NOTIF
+UC_REU ---> COL
+UC_REU ---> AP
+@enduml

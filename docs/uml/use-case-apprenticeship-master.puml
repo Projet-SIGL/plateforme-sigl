@@ -1,0 +1,65 @@
+@startuml use-case-apprenticeship-master
+' Partie 1 §1 - Diagramme de cas d'utilisation du maître d'apprentissage.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — Maître d'apprentissage
+left to right direction
+
+actor "Maître\nd'apprentissage" as MA
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  usecase "Consulter la fiche et le\ncalendrier d'alternance\nde ses apprentis" as UC_FICHE
+  usecase "Valider ou refuser l'affectation\nd'un apprenti à un projet" as UC_VALID
+  usecase "Suivre l'avancement des\nprojets de l'apprenti" as UC_SUIVI
+  usecase "Consulter les documents\nde l'apprenti" as UC_DOCS
+  usecase "Commenter un document" as UC_COMM
+  usecase "Saisir une appréciation" as UC_APPR
+  usecase "Remplir la grille\nde compétences" as UC_GRILLE
+  usecase "Valider la fiche de synthèse\ndes appréciations" as UC_SYNTH
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+actor "Chef de projet" as CP
+actor "Responsable RH" as RH
+
+MA --> UC_CON
+MA --> UC_FICHE
+MA --> UC_VALID
+MA --> UC_SUIVI
+MA --> UC_DOCS
+MA --> UC_APPR
+MA --> UC_SYNTH
+
+UC_COMM .> UC_DOCS : <<extend>>
+UC_APPR .right.> UC_GRILLE : <<include>>
+
+UC_CON ---> KC
+UC_VALID ---> CP
+UC_SYNTH ---> RH
+
+note "Une affectation est créée « Proposée » par le chef de projet ;\nle maître d'apprentissage la passe à « Validée » ou « Refusée »." as N1
+@enduml

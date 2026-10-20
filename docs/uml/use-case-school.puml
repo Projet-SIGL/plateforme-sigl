@@ -1,0 +1,53 @@
+@startuml use-case-school
+' Partie 1 §1 - Diagramme de cas d'utilisation de l'école (tuteur pédagogique, contact école).
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Diagramme de cas d'utilisation — École (tuteur pédagogique, contact école)
+left to right direction
+
+actor "École\n(tuteur pédagogique,\ncontact école)" as ECO
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  usecase "Se connecter à la plate-forme" as UC_CON
+  usecase "Consulter la liste et le calendrier\nd'alternance des apprentis suivis" as UC_CAL
+  usecase "Consulter la fiche de synthèse\ndes appréciations" as UC_SYNTH
+  usecase "Mettre à jour les coordonnées\ndes contacts de l'école" as UC_CONTACT
+  usecase "Être notifié qu'une fiche\nde synthèse est disponible" as UC_NOTIF
+}
+
+actor "Keycloak\n(serveur d'identité)" as KC <<système>>
+actor "Service\nNotifications" as NOTIF <<système>>
+
+ECO --> UC_CON
+ECO --> UC_CAL
+ECO --> UC_SYNTH
+ECO --> UC_CONTACT
+ECO --> UC_NOTIF
+UC_CON ---> KC
+UC_NOTIF ---> NOTIF
+
+note "L'école n'a JAMAIS accès au contenu des projets :\nuniquement au calendrier d'alternance et aux\nfiches de synthèse des apprentis qu'elle suit." as N1
+@enduml

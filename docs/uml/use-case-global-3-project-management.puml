@@ -1,0 +1,78 @@
+@startuml use-case-global-3-project-management
+' Partie 1 §1 - Vue globale 3/3 : sous-systèmes Projets, Ressources & architecture et Réunions & documents.
+' Vérifié contre la consigne du gabarit (dossier de spécification) et les user stories.
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8C
+  ArrowColor #2F5D8C
+}
+skinparam actor {
+  BorderColor #2F5D8C
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #2F5D8C
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #2F5D8C
+title Vue globale (3/3) — Pilotage des projets
+left to right direction
+
+actor "Direction" as DIR
+actor "Maître\nd'apprentissage" as MA
+actor "Apprenti" as AP
+actor "Collaborateur" as COL
+
+rectangle "Plate-forme de pilotage des projets et de suivi des apprentis" {
+  package "Service Ressources & architecture" {
+    usecase "Lier un ou plusieurs\ndépôts GitHub" as R_GH
+    usecase "Décrire l'architecture\net les ressources" as R_ARCHI
+  }
+  package "Service Projets" {
+    usecase "Gérer un projet\n(équipes, tâches, jalons,\nvisibilité)" as P_GERER
+    usecase "Positionner un apprenti\nsur un projet" as P_AFF
+    usecase "Vérifier le calendrier\nd'alternance" as P_VERIF
+    usecase "Signaler les conflits\nde calendrier" as P_CONF
+    usecase "Consulter le tableau de\nbord du portefeuille" as P_TDB
+    usecase "Valider ou refuser\nune affectation" as P_VALID
+    usecase "Consulter la page\nd'un projet" as P_PAGE
+  }
+  package "Service Réunions & documents" {
+    usecase "Planifier une réunion" as M_REU
+    usecase "Proposer des\ncréneaux communs" as M_CREN
+    usecase "Rattacher des documents\n(ordre du jour, compte rendu)" as M_RATT
+    usecase "Déposer un document" as M_DOC
+  }
+}
+
+actor "GitHub" as GH <<système>>
+actor "Chef de projet" as CP
+
+DIR -- P_TDB
+MA -- P_VALID
+AP -- P_PAGE
+COL -- P_PAGE
+COL -- M_DOC
+
+R_GH --- GH
+R_GH --- CP
+R_ARCHI --- CP
+P_GERER --- CP
+P_AFF --- CP
+M_REU --- CP
+
+P_AFF .right.> P_VERIF : <<include>>
+P_CONF .right.> P_AFF : <<extend>>\n[conflit]
+M_REU .right.> M_CREN : <<include>>
+M_RATT .right.> M_REU : <<extend>>
+@enduml
