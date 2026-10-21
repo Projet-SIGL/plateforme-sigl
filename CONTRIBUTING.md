@@ -30,7 +30,7 @@ A **monorepo** organized by folders:
 Folder names under `services/` match the microservice breakdown in the
 specification document (Part 2 §1).
 
-**Why a monorepo**: with four people, a single GitHub Projects board, a single set of
+**Why a monorepo**: with five people, a single GitHub Projects board, a single set of
 conventions and a single release per sprint (v1, v2, v3) are easier to manage.
 A change spanning several services (e.g. a new event) stays a single pull request.
 **Trade-off**: CI must filter by folder (`paths:` in workflows) so that only the
