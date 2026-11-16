@@ -1,0 +1,79 @@
+# Build, tests, coverage and SonarQube analysis on every pull request (issue #70).
+#
+# Quality Gate policy (Part 4 §3): informative in sprint 1, blocking from sprint 2.
+# Switch it with the repository variable SONAR_GATE_BLOCKING ("true" = a failing
+# Quality Gate fails this job). To forbid merging, add the "Quality" job to the
+# required status checks of the protected main branch (repository settings).
+#
+# Secrets to create in the repository settings: SONAR_TOKEN, SONAR_HOST_URL.
+
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SonarQube needs the full history to detect new code
+
+      - name: Detect what exists
+        id: detect
+        run: |
+          echo "services=$(ls services/*/pom.xml 2>/dev/null | wc -l)" >> "$GITHUB_OUTPUT"
+          if [ -f frontend/package.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Java
+        if: steps.detect.outputs.services != '0'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Back-end tests and JaCoCo coverage
+        if: steps.detect.outputs.services != '0'
+        run: |
+          for pom in services/*/pom.xml; do
+            echo "::group::$pom"
+            mvn -B -f "$pom" verify
+            echo "::endgroup::"
+          done
+
+      - name: Set up Node
+        if: steps.detect.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: React tests and Vitest coverage
+        if: steps.detect.outputs.frontend == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npx vitest run --coverage --coverage.reporter=lcov
+
+      - name: SonarQube analysis
+        if: github.event.pull_request.head.repo.fork != true
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=${{ vars.SONAR_GATE_BLOCKING == 'true' }}
