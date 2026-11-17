@@ -13,3 +13,11 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost/issuer
+
+sigl:
+  apprentices:
+    base-url: http://localhost:8081
+  service-account:
+    token-uri: http://localhost/token
+    client-id: test
+    client-secret: test

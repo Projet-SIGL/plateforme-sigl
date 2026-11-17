@@ -91,6 +91,14 @@ public class Appraisal {
     status = AppraisalStatus.SUBMITTED;
   }
 
+  /** SUBMITTED to VALIDATED, triggered by the validation of the summary sheet (hypothesis H-D02). */
+  public void validate() {
+    if (status != AppraisalStatus.SUBMITTED) {
+      throw new IllegalTransitionException("Cannot validate an appraisal in state " + status);
+    }
+    status = AppraisalStatus.VALIDATED;
+  }
+
   public UUID getId() {
     return id;
   }
