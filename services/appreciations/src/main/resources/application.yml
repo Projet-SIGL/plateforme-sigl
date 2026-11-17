@@ -17,3 +17,11 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI}
+
+sigl:
+  apprentices:
+    base-url: ${APPRENTICES_BASE_URL}
+  service-account:
+    token-uri: ${KEYCLOAK_TOKEN_URI}
+    client-id: ${SERVICE_ACCOUNT_CLIENT_ID}
+    client-secret: ${SERVICE_ACCOUNT_CLIENT_SECRET}

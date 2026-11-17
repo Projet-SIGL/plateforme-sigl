@@ -71,4 +71,13 @@ class AppraisalTest {
     assertThatThrownBy(() -> appraisal.submit(author, Map.of()))
         .isInstanceOf(InvalidAppraisalException.class);
   }
+
+  @Test
+  void validatesOnlyASubmittedAppraisal() {
+    assertThatThrownBy(() -> appraisal.validate()).isInstanceOf(IllegalTransitionException.class);
+    appraisal.replaceScores(Map.of(teamwork.getId(), 4, rigor.getId(), 3));
+    appraisal.submit(author, grid);
+    appraisal.validate();
+    assertThat(appraisal.getStatus()).isEqualTo(AppraisalStatus.VALIDATED);
+  }
 }
