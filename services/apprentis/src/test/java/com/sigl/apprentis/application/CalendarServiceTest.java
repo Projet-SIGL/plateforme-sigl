@@ -15,6 +15,7 @@ import com.sigl.apprentis.infrastructure.ApprenticeRepository;
 import com.sigl.apprentis.infrastructure.CalendarPeriodRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -137,6 +138,56 @@ class CalendarServiceTest {
 
     assertThatThrownBy(
             () -> service.importCsv(apprentice, "CLASS,2026-09-01,2026-09-20\nCOMPANY,2026-09-10,2026-10-01"))
+        .isInstanceOf(InvalidRequestException.class);
+  }
+
+  @Test
+  void anExamMayOverlapAClassPeriod() {
+    apprenticeExists();
+    when(periods.save(any())).thenAnswer(i -> i.getArgument(0));
+
+    CalendarPeriod exam = service.addExam(apprentice, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16));
+
+    assertThat(exam.getType()).isEqualTo(PeriodType.EXAM);
+  }
+
+  @Test
+  void updatesAnExam() {
+    CalendarPeriod exam = new CalendarPeriod(apprentice, PeriodType.EXAM, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16));
+    when(periods.findById(exam.getId())).thenReturn(Optional.of(exam));
+    when(periods.save(any())).thenAnswer(i -> i.getArgument(0));
+
+    CalendarPeriod updated =
+        service.updateExam(apprentice, exam.getId(), LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 22));
+
+    assertThat(updated.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 20));
+  }
+
+  @Test
+  void aNonExamPeriodCannotBeUpdatedAsExam() {
+    CalendarPeriod classPeriod = new CalendarPeriod(apprentice, PeriodType.CLASS, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 5));
+    when(periods.findById(classPeriod.getId())).thenReturn(Optional.of(classPeriod));
+
+    assertThatThrownBy(
+            () -> service.updateExam(apprentice, classPeriod.getId(), LocalDate.of(2026, 9, 2), LocalDate.of(2026, 9, 3)))
+        .isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  void anExamOfAnotherApprenticeCannotBeUpdated() {
+    CalendarPeriod exam = new CalendarPeriod(UUID.randomUUID(), PeriodType.EXAM, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16));
+    when(periods.findById(exam.getId())).thenReturn(Optional.of(exam));
+
+    assertThatThrownBy(
+            () -> service.updateExam(apprentice, exam.getId(), LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 22)))
+        .isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  void invertedExamDatesAreRejected() {
+    apprenticeExists();
+
+    assertThatThrownBy(() -> service.addExam(apprentice, LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 10)))
         .isInstanceOf(InvalidRequestException.class);
   }
 }

@@ -44,6 +44,24 @@ public class CalendarService {
     return periods.save(period);
   }
 
+  /** Enters an exam period, which may overlap class or company periods (R06). */
+  @Transactional
+  public CalendarPeriod addExam(UUID apprenticeId, LocalDate start, LocalDate end) {
+    requireApprentice(apprenticeId);
+    return periods.save(new CalendarPeriod(apprenticeId, PeriodType.EXAM, start, end));
+  }
+
+  @Transactional
+  public CalendarPeriod updateExam(UUID apprenticeId, UUID periodId, LocalDate start, LocalDate end) {
+    CalendarPeriod exam =
+        periods
+            .findById(periodId)
+            .filter(p -> p.getApprenticeId().equals(apprenticeId) && p.getType() == PeriodType.EXAM)
+            .orElseThrow(() -> new NotFoundException("Exam period not found"));
+    exam.reschedule(start, end);
+    return periods.save(exam);
+  }
+
   /**
    * Imports a CSV calendar ("CLASS|COMPANY,yyyy-MM-dd,yyyy-MM-dd" per line, optional header).
    * All-or-nothing: one invalid line rejects the whole file.
