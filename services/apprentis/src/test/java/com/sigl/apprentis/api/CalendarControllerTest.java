@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -80,6 +81,43 @@ class CalendarControllerTest {
                 .content("bad")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void hrEntersAnExam() throws Exception {
+    when(service.addExam(any(), any(), any()))
+        .thenReturn(new CalendarPeriod(apprentice, PeriodType.EXAM, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16)));
+
+    mvc.perform(
+            post("/api/apprentis/{id}/examens", apprentice)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"start\":\"2026-09-15\",\"end\":\"2026-09-16\"}")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_HR"))))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.type").value("EXAM"));
+  }
+
+  @Test
+  void hrUpdatesAnExam() throws Exception {
+    when(service.updateExam(any(), any(), any(), any()))
+        .thenReturn(new CalendarPeriod(apprentice, PeriodType.EXAM, LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 22)));
+
+    mvc.perform(
+            put("/api/apprentis/{id}/examens/{p}", apprentice, UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"start\":\"2026-09-20\",\"end\":\"2026-09-22\"}")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_HR"))))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void anApprenticeCannotEnterExams() throws Exception {
+    mvc.perform(
+            post("/api/apprentis/{id}/examens", apprentice)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"start\":\"2026-09-15\",\"end\":\"2026-09-16\"}")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_APPRENTICE"))))
+        .andExpect(status().isForbidden());
   }
 
   @Test
