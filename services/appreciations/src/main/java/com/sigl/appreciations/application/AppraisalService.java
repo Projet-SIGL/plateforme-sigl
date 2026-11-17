@@ -1,11 +1,13 @@
 package com.sigl.appreciations.application;
 
 import com.sigl.appreciations.domain.Appraisal;
+import com.sigl.appreciations.domain.AppraisalStatus;
 import com.sigl.appreciations.domain.Criterion;
 import com.sigl.appreciations.domain.ForbiddenActionException;
 import com.sigl.appreciations.domain.NotFoundException;
 import com.sigl.appreciations.infrastructure.AppraisalRepository;
 import com.sigl.appreciations.infrastructure.CriterionRepository;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -59,6 +61,22 @@ public class AppraisalService {
             .collect(Collectors.toMap(Criterion::getId, Function.identity()));
     appraisal.submit(actorId, required);
     return appraisal;
+  }
+
+  /**
+   * Appraisals of an apprentice. The apprentice only sees validated ones (hypothesis H-D02); staff
+   * see all of them.
+   */
+  @Transactional(readOnly = true)
+  public List<Appraisal> listFor(UUID apprenticeId, UUID requesterId, boolean staff) {
+    if (!staff && !apprenticeId.equals(requesterId)) {
+      throw new ForbiddenActionException("An apprentice only reads their own appraisals");
+    }
+    List<Appraisal> all = appraisals.findByApprenticeId(apprenticeId);
+    if (staff) {
+      return all;
+    }
+    return all.stream().filter(a -> a.getStatus() == AppraisalStatus.VALIDATED).toList();
   }
 
   private void requireSupervision(UUID evaluatorId, UUID apprenticeId, UUID projectId) {

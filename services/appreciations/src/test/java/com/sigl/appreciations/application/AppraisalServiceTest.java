@@ -107,4 +107,23 @@ class AppraisalServiceTest {
 
     assertThatThrownBy(() -> service.submit(author, unknown)).isInstanceOf(NotFoundException.class);
   }
+
+  @Test
+  void anApprenticeOnlySeesTheirValidatedAppraisals() {
+    Appraisal validated = Appraisal.draft(apprentice, project, author, "2030-S1");
+    validated.replaceScores(Map.of(teamwork.getId(), 4));
+    validated.submit(author, Map.of(teamwork.getId(), teamwork));
+    validated.validate();
+    Appraisal draft = Appraisal.draft(apprentice, project, author, "2030-S2");
+    when(appraisals.findByApprenticeId(apprentice)).thenReturn(List.of(validated, draft));
+
+    assertThat(service.listFor(apprentice, apprentice, false)).containsExactly(validated);
+    assertThat(service.listFor(apprentice, UUID.randomUUID(), true)).containsExactly(validated, draft);
+  }
+
+  @Test
+  void anApprenticeNeverReadsAnotherApprentice() {
+    assertThatThrownBy(() -> service.listFor(apprentice, UUID.randomUUID(), false))
+        .isInstanceOf(ForbiddenActionException.class);
+  }
 }
