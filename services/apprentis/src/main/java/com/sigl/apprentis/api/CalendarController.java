@@ -6,6 +6,7 @@ import com.sigl.apprentis.domain.PeriodType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,11 +53,18 @@ class CalendarController {
         service.addPresencePeriod(apprenticeId, body.type(), body.start(), body.end()));
   }
 
-  @PostMapping(value = "/calendrier/import", consumes = {"text/csv", "text/plain"})
+  @PostMapping(value = "/calendrier/import", consumes = {"text/csv", "text/plain", "text/calendar"})
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasAnyRole('HR', 'ADMIN')")
-  List<PeriodResponse> importCsv(@PathVariable UUID apprenticeId, @RequestBody String csv) {
-    return service.importCsv(apprenticeId, csv).stream().map(PeriodResponse::of).toList();
+  List<PeriodResponse> importFile(
+      @PathVariable UUID apprenticeId,
+      @RequestHeader(HttpHeaders.CONTENT_TYPE) String contentType,
+      @RequestBody String content) {
+    List<CalendarPeriod> imported =
+        contentType.startsWith("text/calendar")
+            ? service.importIcal(apprenticeId, content)
+            : service.importCsv(apprenticeId, content);
+    return imported.stream().map(PeriodResponse::of).toList();
   }
 
   @PostMapping("/examens")

@@ -190,4 +190,46 @@ class CalendarServiceTest {
     assertThatThrownBy(() -> service.addExam(apprentice, LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 10)))
         .isInstanceOf(InvalidRequestException.class);
   }
+
+  private static String ics(String... events) {
+    return "BEGIN:VCALENDAR\r\n" + String.join("", events) + "END:VCALENDAR\r\n";
+  }
+
+  private static String event(String summary, String start, String end) {
+    return "BEGIN:VEVENT\r\nSUMMARY:" + summary + "\r\nDTSTART;VALUE=DATE:" + start
+        + "\r\nDTEND;VALUE=DATE:" + end + "\r\nEND:VEVENT\r\n";
+  }
+
+  @Test
+  void importsIcalEventsWithExclusiveEnd() {
+    apprenticeExists();
+    when(periods.findByApprenticeIdOrderByStartDate(apprentice)).thenReturn(List.of());
+    when(periods.saveAll(any())).thenAnswer(i -> i.getArgument(0));
+
+    List<CalendarPeriod> result =
+        service.importIcal(
+            apprentice,
+            ics(event("Cours à l'école", "20260901", "20260913"), event("Entreprise", "20260913", "20261011")));
+
+    assertThat(result).extracting(CalendarPeriod::getType).containsExactly(PeriodType.CLASS, PeriodType.COMPANY);
+    assertThat(result.get(0).getEndDate()).isEqualTo(LocalDate.of(2026, 9, 12));
+  }
+
+  @Test
+  void anUnknownIcalEventIsRejected() {
+    apprenticeExists();
+    when(periods.findByApprenticeIdOrderByStartDate(apprentice)).thenReturn(List.of());
+
+    assertThatThrownBy(() -> service.importIcal(apprentice, ics(event("Holidays", "20260901", "20260905"))))
+        .isInstanceOf(InvalidRequestException.class);
+  }
+
+  @Test
+  void anIcalWithoutEventIsRejected() {
+    apprenticeExists();
+    when(periods.findByApprenticeIdOrderByStartDate(apprentice)).thenReturn(List.of());
+
+    assertThatThrownBy(() -> service.importIcal(apprentice, ics()))
+        .isInstanceOf(InvalidRequestException.class);
+  }
 }

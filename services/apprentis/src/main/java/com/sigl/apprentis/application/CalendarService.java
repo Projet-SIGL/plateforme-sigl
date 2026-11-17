@@ -7,6 +7,7 @@ import com.sigl.apprentis.domain.PeriodType;
 import com.sigl.apprentis.infrastructure.ApprenticeRepository;
 import com.sigl.apprentis.infrastructure.CalendarPeriodRepository;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,6 +87,79 @@ public class CalendarService {
       throw new InvalidRequestException("The file contains no period");
     }
     return periods.saveAll(imported);
+  }
+
+  /**
+   * Imports an iCal file: each VEVENT with an all-day DTSTART/DTEND becomes a period. The type is
+   * read from SUMMARY or CATEGORIES (school/class/ecole/cours → CLASS, company/entreprise → COMPANY).
+   * DTEND is exclusive in iCal, so the period ends the day before it.
+   */
+  @Transactional
+  public List<CalendarPeriod> importIcal(UUID apprenticeId, String ical) {
+    requireApprentice(apprenticeId);
+    List<CalendarPeriod> existing = new ArrayList<>(periods.findByApprenticeIdOrderByStartDate(apprenticeId));
+    List<CalendarPeriod> imported = new ArrayList<>();
+    String unfolded = ical == null ? "" : ical.replaceAll("\\R[ \\t]", "");
+    boolean inEvent = false;
+    String start = null;
+    String end = null;
+    String label = "";
+    for (String raw : unfolded.split("\\R")) {
+      String line = raw.trim();
+      if (line.equals("BEGIN:VEVENT")) {
+        inEvent = true;
+        start = null;
+        end = null;
+        label = "";
+      } else if (line.equals("END:VEVENT") && inEvent) {
+        inEvent = false;
+        CalendarPeriod period = fromEvent(apprenticeId, start, end, label);
+        rejectOverlap(period, existing);
+        existing.add(period);
+        imported.add(period);
+      } else if (inEvent) {
+        int colon = line.indexOf(':');
+        if (colon < 0) {
+          continue;
+        }
+        String name = line.substring(0, colon).split(";")[0].toUpperCase();
+        String value = line.substring(colon + 1).trim();
+        switch (name) {
+          case "DTSTART" -> start = value;
+          case "DTEND" -> end = value;
+          case "SUMMARY", "CATEGORIES" -> label += " " + value.toLowerCase();
+          default -> { }
+        }
+      }
+    }
+    if (imported.isEmpty()) {
+      throw new InvalidRequestException("The file contains no event");
+    }
+    return periods.saveAll(imported);
+  }
+
+  private CalendarPeriod fromEvent(UUID apprenticeId, String start, String end, String label) {
+    if (start == null || start.length() < 8) {
+      throw new InvalidRequestException("An event has no valid DTSTART");
+    }
+    PeriodType type;
+    if (label.matches(".*(company|entreprise).*")) {
+      type = PeriodType.COMPANY;
+    } else if (label.matches(".*(school|class|ecole|école|cours).*")) {
+      type = PeriodType.CLASS;
+    } else {
+      throw new InvalidRequestException("An event is neither a class nor a company period: " + label.trim());
+    }
+    try {
+      LocalDate from = LocalDate.parse(start.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE);
+      LocalDate to =
+          end == null || end.length() < 8
+              ? from
+              : LocalDate.parse(end.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).minusDays(1);
+      return new CalendarPeriod(apprenticeId, type, from, to.isBefore(from) ? from : to);
+    } catch (DateTimeParseException e) {
+      throw new InvalidRequestException("An event has an invalid date");
+    }
   }
 
   private CalendarPeriod parse(UUID apprenticeId, String line, int number) {
