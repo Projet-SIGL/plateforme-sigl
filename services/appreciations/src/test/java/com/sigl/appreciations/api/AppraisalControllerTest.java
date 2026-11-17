@@ -3,6 +3,7 @@ package com.sigl.appreciations.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,6 +12,7 @@ import com.sigl.appreciations.application.AppraisalService;
 import com.sigl.appreciations.domain.Appraisal;
 import com.sigl.appreciations.domain.ForbiddenActionException;
 import com.sigl.appreciations.domain.IllegalTransitionException;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,5 +102,21 @@ class AppraisalControllerTest {
 
     mvc.perform(post("/api/appreciations/" + UUID.randomUUID() + "/soumission").with(as("MASTER")))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void anApprenticeListsTheirAppraisals() throws Exception {
+    when(service.listFor(any(), any(), org.mockito.ArgumentMatchers.eq(false)))
+        .thenReturn(List.of(Appraisal.draft(author, UUID.randomUUID(), UUID.randomUUID(), "2030-S1")));
+
+    mvc.perform(get("/api/appreciations").param("apprenti", author.toString()).with(as("APPRENTICE")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].period").value("2030-S1"));
+  }
+
+  @Test
+  void aProjectManagerCannotListThroughThisRoute() throws Exception {
+    mvc.perform(get("/api/appreciations").param("apprenti", author.toString()).with(as("PROJECT_MANAGER")))
+        .andExpect(status().isForbidden());
   }
 }
