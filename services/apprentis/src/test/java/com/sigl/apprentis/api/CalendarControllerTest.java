@@ -81,4 +81,16 @@ class CalendarControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
         .andExpect(status().isBadRequest());
   }
+
+  @Test
+  void hrImportsAnIcal() throws Exception {
+    when(service.importIcal(any(), any())).thenReturn(List.of());
+
+    mvc.perform(
+            post("/api/apprentis/{id}/calendrier/import", apprentice)
+                .contentType("text/calendar")
+                .content("BEGIN:VCALENDAR\nEND:VCALENDAR")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_HR"))))
+        .andExpect(status().isCreated());
+  }
 }
